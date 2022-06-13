@@ -1,37 +1,45 @@
-import EventSideBar from "components/EventSideBar";
 import React, { useState, useEffect } from "react";
 import Graph from "react-graph-vis";
+import EventSideBar from "components/EventSideBar";
+import { Button } from "reactstrap";
+import Slider from "react-rangeslider";
 import logoName from "../assests/imgs/IOTprint_wname.png";
+import useWebSocket, { ReadyState } from "react-use-websocket";
+import { DateTime } from "luxon";
 
 const NetView = () => {
   const [data, setData] = useState(null);
   const [hostNodes, setHostNodes] = useState([]);
   const [hostEdges, setHostEdges] = useState([]);
-  // const graph = {
-  //   nodes: [
-  //     { id: 1, label: "Node 1", title: "node 1 tootip text" },
-  //     { id: 2, label: "Node 2", title: "node 2 tootip text" },
-  //     { id: 3, label: "Node 3", title: "node 3 tootip text" },
-  //     { id: 4, label: "Node 4", title: "node 4 tootip text" },
-  //     { id: 5, label: "Node 5", title: "node 5 tootip text" },
-  //   ],
-  //   edges: [
-  //     { from: 1, to: 2 },
-  //     { from: 1, to: 3 },
-  //     { from: 2, to: 4 },
-  //     { from: 2, to: 5 },
-  //   ],
-  // };
-
+  const [timestamp, setTimestamp] = useState(0);
+  const [level, setLevel] = useState(1000);
+  const [isLive, setIsLive] = useState(true);
+  const historyTime = 30 * 60 * 1000; // 30min in millisec
+  const { sendMessage, lastMessage, readyState } = useWebSocket(
+    "ws://localhost:8000/netview-ws"
+  );
   const options = {
-    // layout: {
-    //   hierarchical: true,
-    // },
+    physics: {
+      stabilization: false,
+    },
     nodes: {
       color: "#53BF9D",
     },
     edges: {
+      physics: false,
       color: "#233b91",
+      arrows: {
+        to: {
+          enabled: true,
+          type: "arrow",
+        },
+
+        from: {
+          enabled: true,
+          type: "arrow",
+        },
+      },
+      length: 200,
     },
     height: "100%",
     width: "100%",
@@ -43,12 +51,22 @@ const NetView = () => {
     },
   };
 
+  const handleTimeStampChange = (value) => {
+    setIsLive(false);
+    setLevel(value);
+  };
+
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8000/hosts-ws");
-    ws.onmessage = (event) => {
-      setData(JSON.parse(event?.data));
-    };
-  }, []);
+    if (lastMessage) setData(JSON.parse(lastMessage?.data));
+  }, [lastMessage]);
+
+  useEffect(() => {
+    if (isLive && ReadyState.OPEN === readyState) sendMessage("latest");
+  }, [isLive, readyState, sendMessage]);
+
+  useEffect(() => {
+    if (ReadyState.OPEN === readyState) sendMessage(timestamp);
+  }, [timestamp]);
 
   useEffect(() => {
     if (data) {
@@ -71,6 +89,9 @@ const NetView = () => {
       }
     }
   }, [data]);
+  const handleTimeStampFinishChange = (value) => {
+    setTimestamp(new Date().getTime() - ((1000 - level) * historyTime) / 1000);
+  };
 
   return (
     <div className="d-flex ">
@@ -90,11 +111,50 @@ const NetView = () => {
           //   //  if you want access to vis.js network api you can set the state in a parent component using this property
           // }}
         />
-        <img
-          alt="logo-withname"
-          src={logoName}
-          style={{ width: "80px", float: "right" }}
-        />
+        <div className="d-flex justify-content-between align-items-center">
+          <Slider
+            className="w-100"
+            min={0}
+            max={1000}
+            tooltip={false}
+            value={level}
+            onChange={handleTimeStampChange}
+            onChangeComplete={handleTimeStampFinishChange}
+          />
+          <Button
+            style={{ width: "70px" }}
+            className="d-flex align-items-center justify-content-around px-1 mx-1"
+            onClick={(e) => {
+              e.preventDefault();
+              setIsLive(true);
+              setLevel(1000);
+            }}
+            active={isLive}
+            outline={isLive}
+            color="primary"
+          >
+            <div
+              style={{
+                borderRadius: "50%",
+                width: "10px",
+                height: "10px",
+                backgroundColor: "red",
+              }}
+            ></div>
+            Live
+          </Button>
+          <img
+            alt="logo-withname"
+            src={logoName}
+            style={{ width: "80px", float: "right" }}
+          />
+        </div>
+        <p className="text-center">
+          <b> Date:</b>
+          {` ${DateTime.fromSeconds(timestamp / 1000).toLocaleString(
+            DateTime.DATETIME_FULL_WITH_SECONDS
+          )}`}
+        </p>
       </div>
     </div>
   );
