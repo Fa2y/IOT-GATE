@@ -29,20 +29,33 @@ y2 = data_to_use['label'].values
 X_train, X_test, y2_train, y2_test = train_test_split(X, y2, test_size=0.3, random_state=1)
 X_train, X_test, y1_train, y1_test = train_test_split(X, y1, test_size=0.3, random_state=1)
 
+
+X1_train = X_train
+X1_test = X_test
+
 numerical_cols = X_train.select_dtypes(include=['int64', 'float64']).columns
 categorical_cols = X_train.select_dtypes(include=['object']).columns
 
 t = [('ohe', OneHotEncoder(handle_unknown = 'ignore'), categorical_cols),
     ('scale', StandardScaler(), numerical_cols)]
 
+t1 = [('ohe', OneHotEncoder(drop='first'), categorical_cols),
+    ('scale', StandardScaler(), numerical_cols)]
+
 col_trans = ColumnTransformer(transformers=t)
+col1_trans = ColumnTransformer(transformers=t1)
 
 # fit the transformation on training data
 col_trans.fit(X_train)
+col1_trans.fit(X1_train)
 
 X_train_transform = col_trans.transform(X_train)
 
 X_test_transform = col_trans.transform(X_test)
+
+X1_train_transform = col1_trans.transform(X1_train)
+
+X1_test_transform = col1_trans.transform(X1_test)
 
 @app.get("/")
 def home():
@@ -62,13 +75,17 @@ def predict(ts: int, src_port:int, dst_port:int,proto:str, service:str, duration
        'src_bytes', 'dst_bytes', 'conn_state', 'missed_bytes', 'src_pkts',
        'src_ip_bytes', 'dst_pkts', 'dst_ip_bytes', 'ssl_established']) 
     
-    X_predict = col_trans.transform(X_predict)
+    X1_predict = X_predict.copy()
+    X_predict  = col_trans.transform(X_predict)
+    X1_predict = col1_trans.transform(X1_predict)
 
-   
     
-    model = pickle.load(open('./models/logisticRegressionWithPickle.pkl', 'rb'))
+    model = pickle.load(open('./models/attack_or_normal_response/logisticRegression.pkl', 'rb'))
+    model2 = pickle.load(open('./models/attack_type/logisticRegression.pkl', 'rb'))
    
    
     make_prediction = model.predict(X_predict)
+    make_prediction_attack = model2.predict(X1_predict)
     output = make_prediction
-    return {"result":output.tolist()}
+    output2= make_prediction_attack
+    return {"result":output.tolist() ,"result2": output2.tolist()}
