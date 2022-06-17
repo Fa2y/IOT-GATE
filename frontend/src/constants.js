@@ -1,4 +1,4 @@
 export const API_BASE_URL = {
   dev: "localhost:8000",
-  prod: "someiphere",
+  prod: "iot-gate.com/api/v1",
 };

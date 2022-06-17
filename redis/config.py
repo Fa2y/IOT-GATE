@@ -1,7 +1,11 @@
 DEFAULT_KEY_PREFIX = "iot-gate"
+DEBUG = False
 
 class Config():
-    redis_url = 'redis://localhost:6379'
+    if DEBUG:
+        redis_url = 'redis://localhost:6379/?password=a740457a0ea017d4cd784c9ac9cb6a7724866df9'
+    else:
+        redis_url = 'redis://redis_streams:6379/?password=a740457a0ea017d4cd784c9ac9cb6a7724866df9'
 
 def prefixed_key(f):
     """

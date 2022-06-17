@@ -1,0 +1,4 @@
+aioredis==2.0.1
+fastapi==0.78.0
+# httpx==0.21.3
+# paho_mqtt==1.6.1

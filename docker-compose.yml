@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  redis_streams:
+    container_name: "redis_streams"
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass a740457a0ea017d4cd784c9ac9cb6a7724866df9
+    volumes: 
+      - cache:/data
+
+  backend:
+    container_name: "backend"
+    build:
+      context: .
+      dockerfile: ./docker/backend/Dockerfile
+    ports:
+      - 8080:8080
+    volumes:
+      - ./backend:/opt/backend
+    depends_on:
+      - redis_streams
+
+  web:
+    container_name: "web"
+    build:
+      context: .
+      dockerfile: ./docker/frontend/Dockerfile
+    ports:
+      - 3000:3000
+    volumes:
+      - ./frontend:/opt/frontend
+      - /opt/frontend/node_modules
+
+  nginx:
+    container_name: "nginx"
+    build: ./docker/nginx
+    ports:
+      - 80:80
+    volumes:
+      - ./frontend/build:/usr/share/nginx/html
+    depends_on:
+      - api
+      - web
+
+volumes:
+  cache:
+    driver: local
+        
