@@ -10,6 +10,6 @@ COPY ./backend/requirements.txt /opt/backend/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /opt/backend/requirements.txt
 
 COPY ./backend /opt/backend/
-
+COPY ./redis /opt/backend/redis
 # --proxy-headers because running behind a Nginx proxy  
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
