@@ -1,5 +1,5 @@
 aioredis==2.0.1
 fastapi==0.78.0
-uvicorn==0.17.6
+uvicorn[standard]
 # httpx==0.21.3
 # paho_mqtt==1.6.1
