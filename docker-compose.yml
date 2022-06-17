@@ -22,8 +22,8 @@ services:
     depends_on:
       - redis_streams
 
-  web:
-    container_name: "web"
+  frontend:
+    container_name: "frontend"
     build:
       context: .
       dockerfile: ./docker/frontend/Dockerfile
@@ -41,8 +41,8 @@ services:
     volumes:
       - ./frontend/build:/usr/share/nginx/html
     depends_on:
-      - api
-      - web
+      - backend
+      - frontend
 
 volumes:
   cache:
