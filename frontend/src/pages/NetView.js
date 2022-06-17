@@ -5,7 +5,7 @@ import { Button } from "reactstrap";
 import Slider from "react-rangeslider";
 import logoName from "../assests/imgs/IOTprint_wname.png";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import { API_BASE_URL } from "../constants";
+import { API_BASE_URL, DEBUG } from "../constants";
 import { DateTime } from "luxon";
 import { toast } from "react-toastify";
 import LoadingOverlay from "react-loading-overlay";
@@ -22,10 +22,10 @@ const NetView = () => {
   const [loading, setLoading] = useState(true);
   const historyTime = 30 * 60 * 1000; // 30min in millisec
   const { sendMessage, lastMessage, readyState } = useWebSocket(
-    `ws://${API_BASE_URL["dev"]}/netview-ws`
+    `ws://${API_BASE_URL[DEBUG]}/netview-ws`
   );
   const { lastMessage: alertLastMessage } = useWebSocket(
-    `ws://${API_BASE_URL["dev"]}/alerts-ws`
+    `ws://${API_BASE_URL[DEBUG]}/alerts-ws`
   );
   const options = {
     physics: {
