@@ -26,7 +26,7 @@ async def fetch_flows(key, ts):
         (closest to timestamp ts)
     '''
     result = await redis.xrevrange(key, max=ts, count=1)
-    return result[0][1] # unnest results
+    return result if not result else result[0][1] # unnest results
 
 async def fetch_alerts(key, count):
     """
