@@ -5,18 +5,27 @@ import { Button } from "reactstrap";
 import Slider from "react-rangeslider";
 import logoName from "../assests/imgs/IOTprint_wname.png";
 import useWebSocket, { ReadyState } from "react-use-websocket";
+import { API_BASE_URL } from "../constants";
 import { DateTime } from "luxon";
+import { toast } from "react-toastify";
+import LoadingOverlay from "react-loading-overlay";
 
 const NetView = () => {
   const [data, setData] = useState(null);
+  const [network, setNetwork] = useState(null);
   const [hostNodes, setHostNodes] = useState([]);
   const [hostEdges, setHostEdges] = useState([]);
-  const [timestamp, setTimestamp] = useState(0);
+  const [timestampShift, setTimestampShift] = useState(0);
   const [level, setLevel] = useState(1000);
   const [isLive, setIsLive] = useState(true);
+  const [alerts, setAlerts] = useState(null);
+  const [loading, setLoading] = useState(true);
   const historyTime = 30 * 60 * 1000; // 30min in millisec
   const { sendMessage, lastMessage, readyState } = useWebSocket(
-    "ws://localhost:8000/netview-ws"
+    `ws://${API_BASE_URL["dev"]}/netview-ws`
+  );
+  const { lastMessage: alertLastMessage } = useWebSocket(
+    `ws://${API_BASE_URL["dev"]}/alerts-ws`
   );
   const options = {
     physics: {
@@ -47,7 +56,7 @@ const NetView = () => {
 
   const events = {
     select: function (event) {
-      var { nodes, edges } = event;
+      // var { nodes, edges } = event;
     },
   };
 
@@ -55,18 +64,58 @@ const NetView = () => {
     setIsLive(false);
     setLevel(value);
   };
+  const drawNotifs = (data) => {
+    Object.values(data).forEach((notif) =>
+      toast.error(`Malicious activity detected from host:${notif?.alert_host}`)
+    );
+  };
+
+  useEffect(() => {
+    const markAttacker = (attacker_hosts) => {
+      const newHostNodes = hostNodes?.map((host) =>
+        attacker_hosts?.includes(host?.label)
+          ? { ...host, color: "#dc3545" }
+          : host
+      );
+      setHostNodes(newHostNodes);
+    };
+    if (alerts) {
+      markAttacker(Object.values(alerts).map((alert) => alert?.alert_host));
+    }
+  }, [alerts]);
+
+  useEffect(() => {
+    if (alertLastMessage) {
+      const recvData = JSON.parse(alertLastMessage?.data);
+      if (Object.values(recvData).length === 1) {
+        drawNotifs(recvData);
+      }
+      console.log("Data recvied");
+      console.log(recvData);
+      setAlerts((alerts) => ({
+        ...alerts,
+        ...recvData,
+      }));
+    }
+  }, [alertLastMessage]);
 
   useEffect(() => {
     if (lastMessage) setData(JSON.parse(lastMessage?.data));
   }, [lastMessage]);
 
   useEffect(() => {
-    if (isLive && ReadyState.OPEN === readyState) sendMessage("latest");
+    if (isLive && ReadyState.OPEN === readyState) {
+      setLoading(true);
+      sendMessage("latest");
+    }
   }, [isLive, readyState, sendMessage]);
 
   useEffect(() => {
-    if (ReadyState.OPEN === readyState) sendMessage(timestamp);
-  }, [timestamp]);
+    if (ReadyState.OPEN === readyState) {
+      setLoading(true);
+      sendMessage(timestampShift);
+    }
+  }, [timestampShift, readyState, sendMessage]);
 
   useEffect(() => {
     if (data) {
@@ -87,76 +136,96 @@ const NetView = () => {
           }))
         );
       }
+      setLoading(false);
+      if (network) network?.stabilize();
     }
   }, [data]);
+
   const handleTimeStampFinishChange = (value) => {
-    setTimestamp(new Date().getTime() - ((1000 - level) * historyTime) / 1000);
+    setTimestampShift(((1000 - level) * historyTime) / 1000);
   };
 
   return (
-    <div className="d-flex ">
-      <EventSideBar />
-      <div>
-        <Graph
-          style={{
-            height: "600px",
-            borderRadius: "10px",
-            borderStyle: "solid",
-            borderColor: "#233b91",
-          }}
-          graph={{ nodes: hostNodes, edges: hostEdges }}
-          options={options}
-          events={events}
-          // getNetwork={(network) => {
-          //   //  if you want access to vis.js network api you can set the state in a parent component using this property
-          // }}
-        />
-        <div className="d-flex justify-content-between align-items-center">
-          <Slider
-            className="w-100"
-            min={0}
-            max={1000}
-            tooltip={false}
-            value={level}
-            onChange={handleTimeStampChange}
-            onChangeComplete={handleTimeStampFinishChange}
-          />
-          <Button
-            style={{ width: "70px" }}
-            className="d-flex align-items-center justify-content-around px-1 mx-1"
-            onClick={(e) => {
-              e.preventDefault();
-              setIsLive(true);
-              setLevel(1000);
-            }}
-            active={isLive}
-            outline={isLive}
-            color="primary"
+    <>
+      {/* <div
+        className="w-50 mt-2"
+        style={{ zIndex: "10", position: "fixed", left: "25%", opacity: "90%" }}
+      >
+        {notifications?.map((notif) => (
+          <UncontrolledAlert color="danger">{notif}</UncontrolledAlert>
+        ))}
+      </div> */}
+      <div className="d-flex ">
+        <EventSideBar alerts={alerts} />
+        <div>
+          <LoadingOverlay
+            active={loading}
+            spinner
+            text="Fetching Data and Drawing..."
           >
-            <div
+            <Graph
               style={{
-                borderRadius: "50%",
-                width: "10px",
-                height: "10px",
-                backgroundColor: "red",
+                height: "600px",
+                borderRadius: "10px",
+                borderStyle: "solid",
+                borderColor: "#233b91",
               }}
-            ></div>
-            Live
-          </Button>
-          <img
-            alt="logo-withname"
-            src={logoName}
-            style={{ width: "80px", float: "right" }}
-          />
+              graph={{ nodes: hostNodes, edges: hostEdges }}
+              options={options}
+              events={events}
+              getNetwork={(netw) => {
+                if (network === null) setNetwork(netw);
+              }}
+            />
+          </LoadingOverlay>
+          <div className="d-flex justify-content-between align-items-center">
+            <Slider
+              className="w-100"
+              min={0}
+              max={1000}
+              tooltip={false}
+              value={level}
+              onChange={handleTimeStampChange}
+              onChangeComplete={handleTimeStampFinishChange}
+            />
+            <Button
+              style={{ width: "70px" }}
+              className="d-flex align-items-center justify-content-around px-1 mx-1"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsLive(true);
+                setLevel(1000);
+                setTimestampShift(0);
+              }}
+              active={isLive}
+              outline={isLive}
+              color="primary"
+            >
+              <div
+                style={{
+                  borderRadius: "50%",
+                  width: "10px",
+                  height: "10px",
+                  backgroundColor: "red",
+                }}
+              ></div>
+              Live
+            </Button>
+            <img
+              alt="logo-withname"
+              src={logoName}
+              style={{ width: "80px", float: "right" }}
+            />
+          </div>
+          <p className="text-center">
+            <b> Date:</b>
+            {` ${DateTime.fromSeconds(
+              DateTime.now().toUnixInteger() - timestampShift
+            ).toLocaleString(DateTime.DATETIME_FULL_WITH_SECONDS)}`}
+          </p>
         </div>
-        <p className="text-center">
-          <b> Date:</b>
-          {` ${DateTime.fromSeconds(timestamp / 1000).toLocaleString(
-            DateTime.DATETIME_FULL_WITH_SECONDS
-          )}`}
-        </p>
       </div>
-    </div>
+    </>
   );
 };
 
