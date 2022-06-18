@@ -16,3 +16,5 @@ On this project we wanted something light, fast and reliable so we chose the fol
 
 
 ![Network Architecture](documents/imgs/Network_Architecture.jpg "Network Architecture")
+
+![Software Architecture](documents/imgs/Software_architecture.jpg)
